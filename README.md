@@ -1,6 +1,6 @@
 # AgroRoute AI
 
-**Planejamento dinâmico de rotas em tempo real para revendas agrícolas com LRTA\***
+**Planejamento dinâmico de rotas em tempo real para revendas agrícolas com LRTA\***!
 
 Plataforma web que planeja e **replaneja** rotas de entrega de insumos agrícolas usando
 **Busca Online (LRTA\*)**: um agente que decide o próximo passo com o que observa, aprende
@@ -8,7 +8,7 @@ com a estrada e recalcula quando o caminho muda (bloqueios, chuva). As rotas seg
 **estradas reais** (OpenStreetMap via OSRM) e o clima é consultado **ao vivo** (Open-Meteo).
 
 > Trabalho da disciplina **Inteligência Artificial e Computacional** (IFTM Campus Patrocínio).
-> Técnica IAC: **Aula B, Busca Online (LRTA\*)**.
+> Técnica IAC: Busca Online (LRTA\*)**.
 
 <img width="1852" height="902" alt="image" src="https://github.com/user-attachments/assets/f8ec48ed-e96d-429e-a3ab-1912a78eaef6" />
 
