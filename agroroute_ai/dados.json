@@ -1,0 +1,15 @@
+{
+  "cargas": [],
+  "veiculos": [
+    {
+      "placa": "FGH1I22",
+      "tipo": "Pickup",
+      "estado": "disponível"
+    },
+    {
+      "placa": "TKC5I67",
+      "tipo": "Caminhão",
+      "estado": "disponível"
+    }
+  ]
+}

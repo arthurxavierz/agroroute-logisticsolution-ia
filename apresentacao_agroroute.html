@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroRoute AI · Planejamento dinâmico de rotas em tempo real para revendas agrícolas com LRTA*</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-0:#0b0e0d; --bg-1:#101513; --bg-2:#161c19; --bg-3:#1c2420;
+  --line:rgba(255,255,255,.09); --glass:rgba(20,26,23,.72); --glass-brd:rgba(255,255,255,.08);
+  --green:#22c55e; --green-deep:#16a34a; --petrol:#38bdf8; --petrol-deep:#0ea5e9;
+  --amber:#f59e0b; --red:#f43f5e; --cyan:#22d3ee; --violet:#a78bfa;
+  --txt:#e9f0ec; --txt-dim:#94a39b; --txt-mut:#647168;
+  --shadow:0 18px 50px -16px rgba(0,0,0,.6);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--bg-0);color:var(--txt);line-height:1.6;overflow-x:hidden}
+h1,h2,h3,h4{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;letter-spacing:-.02em;line-height:1.12}
+code,pre,.mono{font-family:'JetBrains Mono',monospace}
+a{color:var(--petrol);text-decoration:none}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+
+.progress{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--green),var(--petrol));z-index:200;transition:width .15s}
+.topbar{position:fixed;top:0;left:0;right:0;z-index:150;backdrop-filter:blur(12px);background:rgba(11,14,13,.7);border-bottom:1px solid var(--line)}
+.topbar .in{max-width:1080px;margin:0 auto;padding:12px 28px;display:flex;align-items:center;gap:12px}
+.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--green),var(--petrol-deep));display:grid;place-items:center;color:#06140c;flex-shrink:0}
+.logo svg{width:19px;height:19px}
+.brand-nm{font-family:'Plus Jakarta Sans';font-weight:800;font-size:15px}
+.brand-nm small{display:block;font-weight:600;font-size:9px;letter-spacing:.13em;color:var(--txt-mut);text-transform:uppercase}
+.topnav{margin-left:auto;display:flex;gap:4px}
+.topnav a{font-size:12.5px;color:var(--txt-dim);padding:7px 12px;border-radius:8px;font-weight:600;transition:.15s}
+.topnav a:hover{background:var(--bg-2);color:var(--txt)}
+@media(max-width:860px){.topnav{display:none}}
+
+section{padding:96px 0;border-bottom:1px solid rgba(255,255,255,.04);position:relative}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:'Plus Jakarta Sans';font-weight:700;font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--green);margin-bottom:18px}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(34,197,94,.16)}
+.eyebrow.blue{color:var(--petrol)}.eyebrow.blue .dot{background:var(--petrol);box-shadow:0 0 0 4px rgba(56,189,248,.16)}
+.eyebrow.amber{color:var(--amber)}.eyebrow.amber .dot{background:var(--amber);box-shadow:0 0 0 4px rgba(245,158,11,.16)}
+h2.title{font-size:clamp(28px,4.2vw,46px);margin-bottom:20px;font-weight:800}
+.lead{font-size:clamp(17px,1.8vw,21px);color:var(--txt-dim);max-width:65ch}
+p.body{font-size:16.5px;color:var(--txt-dim);max-width:68ch;margin-top:16px}
+p.body strong{color:var(--txt);font-weight:600}
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;
+  background:radial-gradient(1100px 560px at 80% -10%,rgba(56,189,248,.09),transparent 60%),
+  radial-gradient(900px 520px at -5% 110%,rgba(34,197,94,.09),transparent 55%),var(--bg-0);border-bottom:1px solid var(--line)}
+.hero h1{font-size:clamp(44px,8vw,92px);font-weight:800;letter-spacing:-.03em}
+.hero .grad{background:linear-gradient(120deg,var(--green),var(--petrol) 60%,var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .sub{font-size:clamp(17px,2vw,23px);color:var(--txt-dim);margin-top:22px;max-width:60ch}
+.official-title{margin-top:20px;font-family:'JetBrains Mono';font-size:clamp(12.5px,1.4vw,15px);line-height:1.6;
+  color:var(--txt-dim);max-width:62ch;padding:14px 18px;border-left:3px solid var(--green);
+  background:linear-gradient(90deg,rgba(34,197,94,.07),transparent);border-radius:0 10px 10px 0}
+.tag-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:30px}
+.pill{display:inline-block;font-family:'Plus Jakarta Sans';font-weight:700;font-size:12.5px;padding:6px 14px;border-radius:30px;background:rgba(56,189,248,.13);color:var(--petrol);border:1px solid rgba(56,189,248,.28)}
+.pill.green{background:rgba(34,197,94,.13);color:var(--green);border-color:rgba(34,197,94,.28)}
+.pill.amber{background:rgba(245,158,11,.13);color:var(--amber);border-color:rgba(245,158,11,.28)}
+.scrollcue{margin-top:54px;display:flex;align-items:center;gap:10px;color:var(--txt-mut);font-size:13px;font-weight:600}
+.scrollcue .m{width:24px;height:38px;border:2px solid var(--txt-mut);border-radius:14px;position:relative}
+.scrollcue .m::after{content:"";position:absolute;top:7px;left:50%;transform:translateX(-50%);width:4px;height:7px;border-radius:3px;background:var(--txt-mut);animation:scrolldot 1.6s infinite}
+@keyframes scrolldot{0%{opacity:0;top:7px}40%{opacity:1}80%{opacity:0;top:18px}100%{opacity:0}}
+
+.grid{display:grid;gap:18px;margin-top:30px}
+.cols-2{grid-template-columns:1fr 1fr}.cols-3{grid-template-columns:repeat(3,1fr)}
+.card{background:var(--glass);border:1px solid var(--glass-brd);border-radius:16px;padding:24px;backdrop-filter:blur(8px)}
+.card h3{font-size:18px;margin-bottom:9px;display:flex;align-items:center;gap:11px}
+.card h3 .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex-shrink:0;background:linear-gradient(135deg,var(--green),var(--petrol-deep));color:#06140c;font-weight:800}
+.card h3 .ic svg{width:19px;height:19px}
+.card p{font-size:14.5px;color:var(--txt-dim);line-height:1.6}
+.card p strong{color:var(--txt)}
+.split{display:grid;grid-template-columns:1.05fr .95fr;gap:36px;align-items:center}
+@media(max-width:820px){.cols-2,.cols-3,.split{grid-template-columns:1fr}}
+
+ul.clean{list-style:none;margin-top:20px;display:flex;flex-direction:column;gap:14px}
+ul.clean li{display:flex;gap:13px;align-items:flex-start;font-size:16px;color:var(--txt-dim)}
+ul.clean li strong{color:var(--txt)}
+ul.clean li .chk{flex-shrink:0;width:25px;height:25px;border-radius:7px;display:grid;place-items:center;margin-top:2px;background:rgba(34,197,94,.15);color:var(--green)}
+ul.clean li .chk svg{width:14px;height:14px}
+
+.codeblock{background:#0a0d0c;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:22px;box-shadow:var(--shadow)}
+.codeblock .cbar{display:flex;align-items:center;gap:7px;padding:11px 16px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.codeblock .cbar .d{width:11px;height:11px;border-radius:50%}
+.cbar .r{background:#ff5f57}.cbar .y{background:#febc2e}.cbar .g{background:#28c840}
+.cbar .fname{margin-left:8px;font-family:'JetBrains Mono';font-size:12px;color:var(--txt-mut)}
+.code-toggle{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-family:'Plus Jakarta Sans';font-weight:700;font-size:11.5px;color:var(--petrol);background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);padding:5px 12px;border-radius:7px;cursor:pointer;transition:.15s}
+.code-toggle:hover{background:rgba(56,189,248,.22)}
+.code-toggle svg{width:13px;height:13px}
+.codeblock.collapsed pre.code{display:none}
+.codeblock.collapsed .cbar{border-bottom:none}
+pre.code{font-family:'JetBrains Mono';font-size:13.5px;line-height:1.75;padding:20px 22px;overflow-x:auto;color:#cdd6d0}
+pre.code .cmt{color:#5d6e64;font-style:italic}.cmt b{color:#86a896;font-style:normal}
+pre.code .kw{color:#f472b6}.fn{color:#38bdf8}.str{color:#a3e635}.num{color:#fbbf24}.bi{color:#22d3ee}
+pre.code .hl{display:block;margin:0 -22px;padding:0 22px;background:rgba(34,197,94,.09);border-left:2px solid var(--green)}
+.note{margin-top:14px;font-size:14px;color:var(--txt-mut);border-left:2px solid var(--line);padding-left:14px}
+.note b{color:var(--txt-dim)}
+
+.formula{font-family:'JetBrains Mono';font-size:clamp(15px,2vw,24px);text-align:center;background:var(--glass);border:1px solid var(--line);border-radius:16px;padding:28px;margin:24px 0;color:var(--txt)}
+.formula b{color:var(--green)}.formula .h{color:var(--petrol)}.formula .g{color:var(--amber)}
+.formula small{display:block;font-family:'DM Sans';font-size:14px;color:var(--txt-mut);margin-top:12px}
+
+.viz{margin-top:30px;background:var(--bg-1);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
+.viz-grid{display:grid;grid-template-columns:1.3fr .7fr}
+@media(max-width:820px){.viz-grid{grid-template-columns:1fr}}
+.viz-stage{padding:20px;border-right:1px solid var(--line);position:relative}
+.viz-stage svg{width:100%;height:auto;display:block}
+.viz-side{padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.tnode circle{fill:var(--bg-2);stroke:var(--line);stroke-width:2.5;transition:.3s}
+.tnode.eval circle{stroke:var(--amber);stroke-width:3}
+.tnode.cur circle{fill:var(--petrol);stroke:var(--petrol)}
+.tnode.done circle{fill:rgba(34,197,94,.18);stroke:var(--green);stroke-width:3}
+.tnode.goal circle{stroke:var(--green);stroke-dasharray:4 3}
+.tnode text.lbl{fill:var(--txt);font-family:'Plus Jakarta Sans';font-weight:800;font-size:16px;text-anchor:middle;dominant-baseline:central}
+.tnode.cur text.lbl{fill:#06140c}
+.tnode text.h{fill:var(--petrol);font-family:'JetBrains Mono';font-size:11px;font-weight:700;text-anchor:middle}
+.tedge{stroke:var(--txt-mut);stroke-width:2;transition:.3s}
+.tedge.eval{stroke:var(--amber);stroke-width:3}
+.tedge.path{stroke:var(--green);stroke-width:4}
+.tedge text{fill:var(--txt-mut);font-family:'JetBrains Mono';font-size:10px}
+.viz-explain{background:var(--bg-2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:14px;color:var(--txt-dim);min-height:110px}
+.viz-explain b{color:var(--txt)}.viz-explain .tag{display:inline-block;font-family:'JetBrains Mono';font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px;margin-bottom:8px}
+.tag.t-eval{background:rgba(245,158,11,.16);color:var(--amber)}.tag.t-learn{background:rgba(34,197,94,.16);color:var(--green)}.tag.t-move{background:rgba(56,189,248,.16);color:var(--petrol)}.tag.t-done{background:rgba(167,139,250,.16);color:var(--violet)}
+.htable{font-family:'JetBrains Mono';font-size:12px;width:100%;border-collapse:collapse}
+.htable th{text-align:left;color:var(--txt-mut);font-weight:700;padding:4px 6px;border-bottom:1px solid var(--line)}
+.htable td{padding:4px 6px;color:var(--txt-dim)}
+.htable td.up{color:var(--green);font-weight:700}
+.viz-ctrl{display:flex;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid var(--line);background:rgba(255,255,255,.02);flex-wrap:wrap}
+.viz-ctrl button{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:10px;border:1px solid var(--line);background:var(--bg-2);color:var(--txt);font-family:'Plus Jakarta Sans';font-weight:700;font-size:13px;cursor:pointer;transition:.15s}
+.viz-ctrl button:hover{border-color:var(--green);transform:translateY(-1px)}
+.viz-ctrl button.primary{background:linear-gradient(135deg,var(--green),var(--green-deep));color:#06140c;border:none}
+.viz-ctrl button svg{width:15px;height:15px}
+.viz-ctrl .step-ind{margin-left:auto;font-family:'JetBrains Mono';font-size:12px;color:var(--txt-mut)}
+.viz-ctrl .step-ind b{color:var(--txt)}
+
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:26px}
+@media(max-width:820px){.kpi-row{grid-template-columns:1fr 1fr}}
+.kpi{background:var(--glass);border:1px solid var(--glass-brd);border-radius:14px;padding:18px}
+.kpi .kl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-mut);font-weight:700}
+.kpi .kv{font-family:'Plus Jakarta Sans';font-weight:800;font-size:24px;margin:6px 0 8px;color:var(--txt)}
+.kpi .kd{font-size:12.5px;color:var(--txt-dim);line-height:1.5}
+.kpi.g .kv{color:var(--green)}.kpi.b .kv{color:var(--petrol)}.kpi.a .kv{color:var(--amber)}.kpi.c .kv{color:var(--cyan)}
+
+.concl{background:radial-gradient(800px 400px at 50% 0%,rgba(34,197,94,.08),transparent 60%)}
+.big{font-family:'Plus Jakarta Sans';font-weight:800;font-size:clamp(34px,6vw,68px);background:linear-gradient(120deg,var(--green),var(--petrol),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.05}
+.foot{padding:40px 0 70px;text-align:center;color:var(--txt-mut);font-size:13px}
+
+.flow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:24px}
+.flow .b{background:var(--bg-2);border:1px solid var(--line);border-radius:11px;padding:12px 16px;font-size:14px;font-weight:600;color:var(--txt-dim)}
+.flow .b b{color:var(--txt);display:block;font-family:'Plus Jakarta Sans'}
+.flow .ar{color:var(--green);font-size:20px}
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="topbar">
+  <div class="in">
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div>
+    <div class="brand-nm">AgroRoute AI<small>Busca Online · LRTA*</small></div>
+    <nav class="topnav">
+      <a href="#problema">Problema</a>
+      <a href="#agente">O agente</a>
+      <a href="#equacao">Equação</a>
+      <a href="#viz">Visualização</a>
+      <a href="#codigo">Código</a>
+      <a href="#ordem">Ordem</a>
+      <a href="#ambiente">Ambiente</a>
+      <a href="#kpis">KPIs</a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow"><span class="dot"></span>IFTM · Inteligência Artificial e Computacional ·</div>
+    <h1>Roteirização que <span class="grad">decide e aprende</span> em tempo real.</h1>
+    <p class="official-title">AgroRoute AI: planejamento dinâmico de rotas em tempo real para revendas agrícolas com LRTA*</p>
+    <p class="sub">O <strong>AgroRoute AI</strong> planeja entregas de insumos agrícolas com <strong>Busca Online</strong>, um agente que escolhe o próximo passo com o que observa, aprende com a estrada e replaneja quando o caminho muda.</p>
+    <div class="tag-row">
+      <span class="pill green">Problema real: logística agrícola</span>
+      <span class="pill">Técnica: LRTA* (Learning Real-Time A*)</span>
+      <span class="pill amber">Estradas reais + clima ao vivo</span>
+    </div>
+    <div class="scrollcue"><span class="m"></span> role para começar</div>
+  </div>
+</header>
+
+<section id="problema">
+  <div class="wrap">
+    <div class="eyebrow reveal"><span class="dot"></span>01 · O problema</div>
+    <h2 class="title reveal">Entregar no menor caminho, num mapa que muda o tempo todo</h2>
+    <p class="lead reveal">Uma revenda agrícola precisa abastecer várias fazendas no mesmo dia. A pergunta operacional é simples de enunciar e difícil de resolver: <strong>em que ordem visitar, e por quais estradas, gastando menos tempo e combustível?</strong></p>
+    <p class="body reveal">Esse já é o clássico problema de roteirização. Mas há um agravante que quem trabalha em campo conhece: <strong>o melhor caminho de manhã não é o mesmo da tarde.</strong> Começou a chover, teve um acidente, uma ponte interditou, uma obra criou um siga-e-pare. O plano feito na largada <strong>precisa se refazer no meio do trajeto</strong>, e é isso que a maioria dos roteirizadores comuns não faz bem.</p>
+    <div class="grid cols-3">
+      <div class="card reveal"><h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>Custo</h3><p>Cada quilômetro a mais é combustível, desgaste do veículo e hora de motorista. Em escala, vira muito dinheiro no fim do mês.</p></div>
+      <div class="card reveal"><h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Tempo</h3><p>Insumo agrícola tem hora certa. Um atraso pode comprometer uma janela de plantio ou aplicação, o prejuízo passa do frete.</p></div>
+      <div class="card reveal"><h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>Imprevisto</h3><p>Chuva, bloqueio, interdição. O ambiente é <strong>dinâmico</strong> e só é conhecido em parte, exatamente o terreno da Busca Online.</p></div>
+    </div>
+    <div class="card reveal" style="margin-top:18px;border-color:rgba(34,197,94,.25)">
+      <h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7h-9M14 17H5M17 3l3 4-3 4M7 21l-3-4 3-4"/></svg></span>Por que este problema é meu</h3>
+      <p>Eu atuo na área de <strong>logística e roteirização</strong>. Não escolhi um problema de laboratório: escolhi o que vejo todo dia. Isso me deu critérios reais para modelar, como o cuidado de <strong>não arrastar carga pesada em desvios desnecessários</strong>, que veremos na decisão de ordem.</p>
+    </div>
+  </div>
+</section>
+
+<section id="agente">
+  <div class="wrap">
+    <div class="eyebrow blue reveal"><span class="dot"></span>02 · Como o agente pensa</div>
+    <h2 class="title reveal">Busca Online: decidir com o que se vê, aprender com o que se anda</h2>
+    <div class="split">
+      <div>
+        <p class="body reveal">Uma busca <strong>offline</strong> (como o A* tradicional) calcula a rota inteira <strong>antes de sair</strong>, supondo que conhece o mapa todo e que nada muda. Funciona num mundo fixo.</p>
+        <p class="body reveal">A <strong>Busca Online</strong> assume o contrário: o agente <strong>não tem o mapa completo na cabeça</strong>. Em cada ponto, ele olha só as opções à volta, escolhe a melhor e segue, <strong>descobrindo e corrigindo o caminho enquanto dirige.</strong> Quando o custo de uma estrada muda (chuva, bloqueio), ele <strong>reage na hora</strong>, sem recomeçar do zero.</p>
+      </div>
+      <div class="card reveal">
+        <h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.5 5 5.5.8-4 3.9.9 5.5L12 21l-4.9 2.6.9-5.5-4-3.9 5.5-.8z"/></svg></span>A heurística H(s)</h3>
+        <p>É o <strong>palpite</strong> de quão longe um ponto está do destino. Começa como a <strong>distância em linha reta</strong> (otimista). A cada passo, o agente <strong>corrige esse palpite</strong> com o custo real que descobriu, e essa correção, guardada numa tabela, é literalmente o <strong>aprendizado</strong> do algoritmo.</p>
+      </div>
+    </div>
+    <div class="flow reveal">
+      <div class="b"><b>Observa</b> os vizinhos do ponto atual</div>
+      <span class="ar">→</span>
+      <div class="b"><b>Avalia</b> custo + palpite de cada um</div>
+      <span class="ar">→</span>
+      <div class="b"><b>Aprende</b> corrigindo o palpite atual</div>
+      <span class="ar">→</span>
+      <div class="b"><b>Move</b> para o melhor e repete</div>
+    </div>
+  </div>
+</section>
+
+<section id="equacao">
+  <div class="wrap">
+    <div class="eyebrow reveal"><span class="dot"></span>03 · A equação do LRTA*</div>
+    <h2 class="title reveal">Uma conta por passo, e uma linha que aprende</h2>
+    <p class="lead reveal">LRTA* quer dizer <em>Learning Real-Time A*</em>, A* em tempo real, que aprende. Tudo se resume a avaliar os vizinhos com uma soma e, em seguida, atualizar o palpite do nó atual.</p>
+    <div class="formula reveal">
+      f(vizinho) = <span class="g">custo(atual → vizinho)</span> + <span class="h">H(vizinho)</span>
+      <small>escolhe o vizinho de MENOR f</small>
+    </div>
+    <div class="formula reveal" style="border-color:rgba(34,197,94,.3)">
+      <b>H(atual) = máx( H(atual) , menor f )</b>
+      <small>aprende: o palpite do nó atual NUNCA diminui (variante monótona)</small>
+    </div>
+    <div class="grid cols-3">
+      <div class="card reveal"><h3><span class="ic">1</span>Avaliar</h3><p>Para cada vizinho, soma o <strong>custo real</strong> de chegar até ele com o <strong>palpite (H)</strong> dele até o destino. Trecho bloqueado tem custo <strong>infinito</strong> → é descartado.</p></div>
+      <div class="card reveal"><h3><span class="ic">2</span>Aprender</h3><p>O palpite do nó atual vira o <strong>máximo</strong> entre o que era e o melhor f encontrado. Manter o H sempre crescente <strong>garante que o agente chega ao destino</strong> e não oscila para sempre.</p></div>
+      <div class="card reveal"><h3><span class="ic">3</span>Mover</h3><p>Anda para o melhor vizinho e repete a conta dali. Depois de algumas passadas, o H aprendido conduz ao <strong>caminho ótimo</strong>.</p></div>
+    </div>
+    <p class="note reveal"><b>Por que "máximo" e não "mínimo"?</b> Se o palpite pudesse cair, o agente poderia ficar pingando entre dois pontos eternamente. Forçando o H a só subir, cada visita "fecha portas ruins", é o que faz o LRTA* convergir.</p>
+  </div>
+</section>
+
+<section id="viz">
+  <div class="wrap">
+    <div class="eyebrow blue reveal"><span class="dot"></span>04 · Visualização interativa</div>
+    <h2 class="title reveal">O algoritmo rodando, passo a passo</h2>
+    <p class="lead reveal">Esta é a <strong>representação visual do próprio LRTA* em execução</strong>, a mesma lógica do código que veremos a seguir, e da aba <em>Motor de Busca Online</em> do sistema. Cada passo aqui é uma chamada real do algoritmo: <strong>avaliar</strong> os vizinhos, <strong>aprender</strong> o novo H e <strong>mover</strong>. Dê <strong>play</strong> ou avance manualmente e acompanhe pelo painel à direita.</p>
+    <p class="body reveal">Em outras palavras: o que você vê não é uma animação ilustrativa qualquer, é o agente <strong>tomando as decisões de verdade</strong>. Os vizinhos avaliados ficam em <span style="color:var(--amber)">âmbar</span>, o nó para onde ele se move fica em <span style="color:var(--petrol)">azul</span>, o caminho já percorrido em <span style="color:var(--green)">verde</span>, e o número azul sob cada nó é o palpite <strong>H</strong> sendo aprendido.</p>
+
+    <div class="viz reveal">
+      <div class="viz-grid">
+        <div class="viz-stage">
+          <svg id="viz-svg" viewBox="0 0 600 340"></svg>
+        </div>
+        <div class="viz-side">
+          <div class="viz-explain" id="viz-explain"></div>
+          <div>
+            <table class="htable" id="htable">
+              <thead><tr><th>Nó</th><th>H inicial</th><th>H aprendido</th></tr></thead>
+              <tbody id="htbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="viz-ctrl">
+        <button class="primary" id="viz-play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> <span id="viz-play-txt">Play</span></button>
+        <button id="viz-prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg> Voltar</button>
+        <button id="viz-next">Avançar <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button id="viz-reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5M3.05 13A9 9 0 1 0 6 5.3L3 8"/></svg> Reiniciar</button>
+        <span class="step-ind">passo <b id="viz-step">0</b> / <span id="viz-total">0</span></span>
+      </div>
+    </div>
+    <p class="note reveal">As três cores correspondem exatamente às três etapas da função <code>passo()</code> que você verá na próxima seção: <span style="color:var(--amber)">avaliar</span>, <span style="color:var(--green)">aprender</span> e <span style="color:var(--petrol)">mover</span>. Os números nas arestas são o <b>custo real</b> (km) e o número azul sob cada nó é o <b>H</b> (palpite), repare ele <b>subindo</b> quando o nó é aprendido.</p>
+  </div>
+</section>
+
+<section id="codigo">
+  <div class="wrap">
+    <div class="eyebrow reveal"><span class="dot"></span>05 · Onde a técnica vive no código</div>
+    <h2 class="title reveal">src/lrta.py, limpo, comentado e isolado</h2>
+    <p class="lead reveal">A classe <code>MotorLRTA</code> é <strong>genérica</strong>: recebe o grafo e duas funções (custo real e heurística). Ela não sabe nada de mapas, só executa a lógica da Busca Online. Esse isolamento é o que deixa a técnica fácil de mostrar e defender.</p>
+
+    <div class="codeblock reveal">
+      <div class="cbar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="fname">src/lrta.py · passo(), UM passo do agente</span></div>
+<pre class="code"><span class="kw">def</span> <span class="fn">passo</span>(<span class="kw">self</span>, atual, objetivo):
+    melhor, melhor_f = <span class="kw">None</span>, INF
+<span class="hl">    <span class="cmt"># 1) AVALIAR: para cada vizinho, f = custo(atual,viz) + H(viz)</span></span>
+<span class="hl">    <span class="kw">for</span> v <span class="kw">in</span> <span class="kw">self</span>.grafo.<span class="fn">vizinhos</span>(atual):</span>
+<span class="hl">        c = <span class="kw">self</span>.<span class="fn">custo</span>(atual, v)</span>
+<span class="hl">        <span class="kw">if</span> c == INF: <span class="kw">continue</span>        <span class="cmt"># trecho bloqueado -&gt; ignora</span></span>
+<span class="hl">        f = c + <span class="kw">self</span>.<span class="fn">get_h</span>(v, objetivo)</span>
+<span class="hl">        <span class="kw">if</span> f &lt; melhor_f: melhor_f, melhor = f, v</span>
+    <span class="kw">if</span> melhor <span class="kw">is</span> <span class="kw">None</span>: <span class="kw">return</span> <span class="kw">None</span>   <span class="cmt"># sem saída (dead-end)</span>
+
+    <span class="cmt"># 2) APRENDER: H(atual) nunca diminui (variante monótona)</span>
+    h_antigo = <span class="kw">self</span>.<span class="fn">get_h</span>(atual, objetivo)
+    novo_h   = <span class="fn">max</span>(h_antigo, melhor_f)
+    <span class="kw">self</span>.H[atual] = novo_h            <span class="cmt"># guarda o aprendizado na tabela H</span>
+
+    <span class="cmt"># 3) MOVER para o melhor vizinho</span>
+    <span class="kw">return</span> melhor</pre>
+    </div>
+    <p class="note reveal">O bloco destacado é o coração do algoritmo: avalia os vizinhos com <b>custo + H</b> e guarda o de menor f. Logo abaixo está o aprendizado, <code>max(h_antigo, melhor_f)</code>, que corrige o palpite e o salva na tabela. No fim, retorna o melhor vizinho, é o passo do agente.</p>
+
+    <div class="codeblock reveal">
+      <div class="cbar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="fname">src/lrta.py · buscar(), repete passos até convergir</span></div>
+<pre class="code"><span class="kw">def</span> <span class="fn">buscar</span>(<span class="kw">self</span>, inicio, objetivo):
+    <span class="cmt"># o LRTA* melhora a cada TENTATIVA: o H aprendido numa passada</span>
+    <span class="cmt"># torna a proxima mais curta, ate parar de mudar (convergiu).</span>
+    <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(MAX_TRIALS):
+        atual, caminho, custo_total = inicio, [inicio], <span class="num">0.0</span>
+        <span class="kw">while</span> atual != objetivo <span class="kw">and</span> passos &lt; MAX_PASSOS:
+            prox = <span class="kw">self</span>.<span class="fn">passo</span>(atual, objetivo)   <span class="cmt"># 1 passo do agente</span>
+            <span class="kw">if</span> prox <span class="kw">is</span> <span class="kw">None</span>: <span class="kw">break</span>             <span class="cmt"># preso -&gt; encerra tentativa</span>
+            custo_total += <span class="kw">self</span>.<span class="fn">custo</span>(atual, prox)
+            atual = prox; caminho.<span class="fn">append</span>(atual)
+        <span class="kw">if</span> atual == objetivo <span class="kw">and</span> <span class="kw">not</span> houve_update:
+            <span class="kw">break</span>                          <span class="cmt"># nada mudou = caminho otimo</span>
+    <span class="kw">return</span> {<span class="str">"caminho"</span>: melhor_caminho, <span class="str">"custo"</span>: melhor_custo}</pre>
+    </div>
+    <p class="note reveal"><b>A ideia da convergência:</b> a primeira passada já chega ao destino, mas pode não ser ótima. Como o H aprendido fica salvo, cada nova tentativa é melhor, quando uma passada inteira ocorre <b>sem nenhuma atualização de H</b>, o caminho é o ótimo e ele para.</p>
+  </div>
+</section>
+
+<section id="ordem">
+  <div class="wrap">
+    <div class="eyebrow amber reveal"><span class="dot"></span>06 · Decisão de ordem inteligente</div>
+    <h2 class="title reveal">A balança distância × peso</h2>
+    <div class="split">
+      <div>
+        <p class="body reveal">Definida a forma de navegar entre dois pontos, falta decidir <strong>a ordem das entregas</strong>. O critério ingênuo seria "vá sempre ao mais próximo". Mas isso ignora um detalhe que todo logístico sente na pele: <strong>não compensa arrastar carga pesada num desvio fora da direção principal.</strong></p>
+        <p class="body reveal"><strong>Exemplo real:</strong> a base fica na saída da cidade rumo a Patos. Há uma entrega de <strong>7.000 kg</strong> nessa direção e outra de <strong>300 kg</strong> num polo próximo, mas no sentido oposto. O "mais próximo" mandaria fazer os 300 kg primeiro, obrigando a desviar <strong>com o caminhão cheio</strong>. O certo é entregar Patos primeiro e pegar a leve na volta.</p>
+      </div>
+      <div class="card reveal">
+        <h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 7h18M5 7l-2 6a4 4 0 0 0 8 0L9 7M19 7l-2 6a4 4 0 0 0 8 0l-2-6"/></svg></span>Ton-quilômetro</h3>
+        <p>Carregar 7.000 kg num desvio de 5 km "custa" 35.000 ton·km; com 300 kg, só 1.500. O sistema passa a <strong>evitar desviar com o veículo cheio</strong>, automatizando o raciocínio de quem está na operação.</p>
+      </div>
+    </div>
+    <div class="codeblock reveal">
+      <div class="cbar"><span class="d r"></span><span class="d y"></span><span class="d g"></span><span class="fname">src/planejador.py · escolha do próximo cliente</span></div>
+<pre class="code"><span class="cmt"># beta vem da config (controle deslizante): 0 = so distancia;</span>
+<span class="cmt"># maior = prioriza aliviar carga pesada cedo.</span>
+beta = <span class="fn">float</span>(<span class="kw">self</span>.config.<span class="fn">get</span>(<span class="str">"peso_carga"</span>, <span class="num">0.7</span>))
+
+<span class="kw">def</span> <span class="fn">chave</span>(p):
+    d = <span class="kw">self</span>.<span class="fn">custo</span>(atual, p)            <span class="cmt"># distancia real ao cliente p</span>
+    <span class="kw">if</span> d == INF: <span class="kw">return</span> ...             <span class="cmt"># bloqueado -&gt; evita</span>
+<span class="hl">    <span class="kw">return</span> d / (peso_de[p] ** beta)   <span class="cmt"># distancia dividida pelo peso^beta</span></span>
+
+prox = <span class="fn">min</span>(pendentes, key=chave)        <span class="cmt"># cliente mais "atraente"</span></pre>
+    </div>
+    <p class="note reveal"><b>Lendo a linha destacada:</b> dividir a distância pelo peso faz o cliente <b>pesado</b> ter uma "chave" menor, ou seja, ser escolhido <b>antes</b>, mesmo um pouco mais longe. Quando os pesos são parecidos, o termo do peso se cancela e <b>vale a distância</b>, como no critério clássico. Um <b>slider</b> em Configurações ajusta o <code>beta</code> ("economia de combustível ↔ aliviar carga").</p>
+  </div>
+</section>
+
+<section id="ambiente">
+  <div class="wrap">
+    <div class="eyebrow blue reveal"><span class="dot"></span>07 · O ambiente dinâmico É a busca online</div>
+    <h2 class="title reveal">Cada interferência, ao vivo ou manual, alimenta o agente</h2>
+    <p class="lead reveal">A Busca Online só faz sentido se o ambiente muda. No AgroRoute, ele muda de três formas, e <strong>todas remetem ao mesmo conceito</strong>: o agente observa um novo estado do mundo e replaneja sobre ele.</p>
+    <div class="grid cols-3">
+      <div class="card reveal"><h3><span class="ic" style="background:linear-gradient(135deg,var(--cyan),var(--petrol-deep))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 13v5m-4-3v5m8-6v3M20 16.6A5 5 0 0 0 18 7h-1.3A8 8 0 1 0 4 15.3"/></svg></span>Chuva real <span class="pill" style="font-size:9px;padding:2px 7px;margin-left:2px">AO VIVO</span></h3><p>O botão "Buscar chuva na região" consulta a <strong>API Open-Meteo</strong> (gratuita, sem chave) e varre a região por precipitação real. Onde chove ≥ 0,8 mm, o <strong>tempo</strong> é penalizado <strong>proporcionalmente</strong> ao quanto de cada trecho está na chuva.</p></div>
+      <div class="card reveal"><h3><span class="ic" style="background:linear-gradient(135deg,var(--red),#b91c1c)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>Bloqueios (manual)</h3><p>Acidente, obra, ponte ou estrada interditada viram <strong>custo infinito</strong> naquele trecho. O agente é forçado a descartá-lo e procurar outro caminho, a reação clássica da Busca Online a um estado novo.</p></div>
+      <div class="card reveal"><h3><span class="ic" style="background:linear-gradient(135deg,var(--amber),#d97706)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5M3 13a9 9 0 1 0 3-7L3 8"/></svg></span>Desvio real (OSRM)</h3><p>Para materializar o contorno por <strong>estradas de verdade</strong>, o sistema consulta o <strong>OSRM</strong> (roteador sobre OpenStreetMap), gerando pontos de desvio ao redor do obstáculo. É o "GPS" que o agente usa para enxergar as ruas.</p></div>
+    </div>
+    <div class="card reveal" style="margin-top:18px;border-color:rgba(56,189,248,.25)">
+      <h3><span class="ic" style="background:linear-gradient(135deg,var(--petrol),var(--green))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10M12 2v10l7-7"/></svg></span>O elo com a teoria</h3>
+      <p>Repare: seja uma chuva detectada <strong>ao vivo</strong> pela API, seja um bloqueio <strong>registrado manualmente</strong>, ambos fazem a mesma coisa, <strong>alteram o custo das estradas que o agente observa</strong>. O LRTA* então recalcula reagindo a esse novo estado. <strong>OSRM e Open-Meteo são os "sentidos" do agente; o LRTA* é o cérebro que decide.</strong></p>
+    </div>
+  </div>
+</section>
+
+<section id="kpis">
+  <div class="wrap">
+    <div class="eyebrow reveal"><span class="dot"></span>08 · O que o sistema mede</div>
+    <h2 class="title reveal">Indicadores que um operador entende na hora</h2>
+    <p class="lead reveal">Cada número na tela responde a uma pergunta concreta da operação, e é calculado com honestidade, sem inflar resultado.</p>
+    <div class="kpi-row">
+      <div class="kpi b reveal"><div class="kl">Km planejados</div><div class="kv">196 km</div><div class="kd">Soma das distâncias reais (OSRM) de todas as rotas ativas, com retorno à base. É combustível direto.</div></div>
+      <div class="kpi a reveal"><div class="kl">Maior rota</div><div class="kv">168 min</div><div class="kd">O <strong>maior tempo</strong> entre as rotas (não a soma): veículos rodam em paralelo, então o dia acaba quando o mais demorado chega.</div></div>
+      <div class="kpi g reveal"><div class="kl">Economia</div><div class="kv">5,3 km</div><div class="kd">Quanto a rota otimizada poupa frente à <strong>média de 24 ordens aleatórias</strong>. Mede o valor da otimização.</div></div>
+      <div class="kpi c reveal"><div class="kl">Tempo (por rota)</div><div class="kv">×fator</div><div class="kd">(distância ÷ velocidade) × 60 × fator de chuva. A chuva mexe só aqui, no <strong>tempo</strong>, nunca nos km.</div></div>
+    </div>
+    <div class="grid cols-2" style="margin-top:18px">
+      <div class="card reveal"><h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></span>Como a economia é calculada</h3><p>O sistema embaralha a ordem de visita <strong>24 vezes</strong>, mede a distância média dessas ordens aleatórias e compara com a rota escolhida. O resultado é <strong>determinístico</strong> (mesma carga → mesma economia). Em outras palavras: <em>"quantos km a mais você rodaria fazendo as entregas numa ordem qualquer".</em></p></div>
+      <div class="card reveal"><h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Veículo e tempo</h3><p>Pelo peso total, o sistema escolhe <strong>pickup</strong> (até 600 kg, 100 km/h) ou <strong>caminhão</strong> (acima, 70 km/h) e mostra a placa já na criação da carga. O tempo de cada trecho usa a velocidade do veículo e é penalizado pela chuva de forma proporcional.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="concl" id="conclusao">
+  <div class="wrap">
+    <div class="eyebrow reveal"><span class="dot"></span>09 · Em resumo</div>
+    <h2 class="big reveal" style="max-width:18ch">Teoria e prática<br>no mesmo lugar.</h2>
+    <p class="lead reveal" style="margin-top:18px">O AgroRoute AI não é uma demonstração abstrata de algoritmo: é um <strong>problema real da minha rotina</strong> resolvido com a técnica adequada, mostrando o conceito de Busca Online <strong>funcionando sobre o mundo de verdade</strong>.</p>
+    <div class="grid cols-2" style="margin-top:30px">
+      <ul class="clean reveal">
+        <li><span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg></span><span><strong>Busca Online (LRTA*)</strong> no núcleo: avaliar, aprender o H, mover, em código limpo e localizável.</span></li>
+        <li><span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg></span><span><strong>Ambiente dinâmico real:</strong> estradas (OSRM) e clima ao vivo (Open-Meteo) mudando o custo que o agente observa.</span></li>
+      </ul>
+      <ul class="clean reveal">
+        <li><span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg></span><span><strong>Decisão de ordem inteligente:</strong> a balança distância × peso, vinda da experiência de campo.</span></li>
+        <li><span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg></span><span><strong>Interface para leigo</strong> com a didática do algoritmo embutida e métricas honestas.</span></li>
+      </ul>
+    </div>
+    <p class="body reveal" style="margin-top:30px;font-size:18px;color:var(--txt)">No fim, o AgroRoute AI é um agente que <strong>decide, aprende e reage</strong>, exatamente o que a estrada real exige. <span style="color:var(--green)">Obrigado!</span></p>
+  </div>
+</section>
+
+<div class="foot">AgroRoute AI · IFTM Campus Patrocínio · Inteligência Artificial e Computacional · Busca Online (LRTA*)</div>
+
+<script>
+const prog = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const h = document.documentElement;
+  prog.style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%';
+});
+const io = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); }), { threshold: .12 });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+/* ===== botão "Ver código" (recolhido por padrão) em cada bloco ===== */
+const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+document.querySelectorAll('.codeblock').forEach((cb) => {
+  cb.classList.add('collapsed');
+  const bar = cb.querySelector('.cbar');
+  const btn = document.createElement('button');
+  btn.className = 'code-toggle';
+  btn.innerHTML = EYE + '<span class="ct-txt">Ver código</span>';
+  btn.addEventListener('click', () => {
+    const collapsed = cb.classList.toggle('collapsed');
+    btn.querySelector('.ct-txt').textContent = collapsed ? 'Ver código' : 'Ocultar código';
+  });
+  bar.appendChild(btn);
+});
+
+(function () {
+  const NODES = {
+    S: { x: 70,  y: 250, hx: 0, hy: 2, label: 'S' },
+    A: { x: 230, y: 110, hx: 2, hy: 3, label: 'A' },
+    B: { x: 230, y: 290, hx: 2, hy: 1, label: 'B' },
+    C: { x: 410, y: 200, hx: 4, hy: 2, label: 'C' },
+    G: { x: 540, y: 170, hx: 6, hy: 2, label: 'G' },
+  };
+  const EDGES = [
+    ['S','A',2.4], ['S','B',2.4], ['A','C',2.3], ['B','C',2.3], ['C','G',2.2], ['A','G',4.6],
+  ];
+  const GOAL = 'G';
+  const adj = {}; Object.keys(NODES).forEach(n => adj[n] = []);
+  const cost = {};
+  EDGES.forEach(([a,b,c]) => { adj[a].push(b); adj[b].push(a); cost[a+'-'+b]=c; cost[b+'-'+a]=c; });
+  const dist = (n) => { const a=NODES[n], g=NODES[GOAL]; return Math.hypot(a.hx-g.hx, a.hy-g.hy); };
+  const h0 = {}; Object.keys(NODES).forEach(n => h0[n] = +dist(n).toFixed(2));
+
+  function gerarPassos() {
+    const H = {}; const steps = []; let atual = 'S'; const path = ['S']; let guard = 0;
+    const getH = (n) => (n in H ? H[n] : h0[n]);
+    while (atual !== GOAL && guard++ < 30) {
+      const evals = [];
+      let melhor = null, melhorF = Infinity;
+      for (const v of adj[atual]) {
+        const c = cost[atual+'-'+v];
+        const f = +(c + getH(v)).toFixed(2);
+        evals.push({ v, c, hv: +getH(v).toFixed(2), f });
+        if (f < melhorF) { melhorF = f; melhor = v; }
+      }
+      steps.push({ tipo:'eval', atual, evals, melhor, melhorF:+melhorF.toFixed(2), H:{...H}, path:[...path] });
+      const hAnt = +getH(atual).toFixed(2);
+      const novo = +Math.max(hAnt, melhorF).toFixed(2);
+      H[atual] = novo;
+      steps.push({ tipo:'learn', atual, hAnt, novo, melhor, H:{...H}, path:[...path], mudou: novo > hAnt + 1e-9 });
+      path.push(melhor);
+      steps.push({ tipo:'move', de:atual, para:melhor, custo:cost[atual+'-'+melhor], H:{...H}, path:[...path] });
+      atual = melhor;
+    }
+    steps.push({ tipo:'done', atual:GOAL, H:{...H}, path:[...path] });
+    return steps;
+  }
+  const STEPS = gerarPassos();
+  let idx = -1, timer = null;
+
+  const svg = document.getElementById('viz-svg');
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs, parent) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+
+  function draw(state) {
+    svg.innerHTML = '';
+    const evalSet = {}; let pathEdges = {};
+    if (state) {
+      if (state.tipo === 'eval') state.evals.forEach(e => evalSet[state.atual+'-'+e.v] = true);
+      const p = state.path || [];
+      for (let i=0;i<p.length-1;i++) pathEdges[p[i]+'-'+p[i+1]] = true;
+    }
+    EDGES.forEach(([a,b,c]) => {
+      const na=NODES[a], nb=NODES[b];
+      let cls = 'tedge';
+      if (pathEdges[a+'-'+b] || pathEdges[b+'-'+a]) cls = 'tedge path';
+      else if (evalSet[a+'-'+b] || evalSet[b+'-'+a]) cls = 'tedge eval';
+      el('line', { x1:na.x, y1:na.y, x2:nb.x, y2:nb.y, class:cls }, svg);
+      const mx=(na.x+nb.x)/2, my=(na.y+nb.y)/2;
+      const t = el('text', { x:mx, y:my-5, class:'tedge', 'text-anchor':'middle' }, svg);
+      t.textContent = c;
+    });
+    const H = state ? state.H : {};
+    const path = state ? (state.path||[]) : [];
+    Object.keys(NODES).forEach(n => {
+      const nd = NODES[n]; let cls = 'tnode';
+      if (n === GOAL) cls += ' goal';
+      if (path.includes(n)) cls += ' done';
+      if (state) {
+        if (state.tipo === 'eval' && state.evals.some(e => e.v === n)) cls += ' eval';
+        if ((state.atual === n) && state.tipo !== 'move') cls += ' cur';
+        if (state.tipo === 'move' && state.para === n) cls += ' cur';
+      }
+      const g = el('g', { class:cls }, svg);
+      el('circle', { cx:nd.x, cy:nd.y, r:24 }, g);
+      const lbl = el('text', { x:nd.x, y:nd.y, class:'lbl' }, g); lbl.textContent = nd.label;
+      const hv = (n in H ? H[n] : h0[n]);
+      const ht = el('text', { x:nd.x, y:nd.y+38, class:'h' }, g);
+      ht.textContent = 'H=' + (+hv).toFixed(1);
+    });
+  }
+
+  function renderH(state) {
+    const tb = document.getElementById('htbody'); tb.innerHTML = '';
+    Object.keys(NODES).forEach(n => {
+      const H = state ? state.H : {};
+      const aprendido = (n in H);
+      const tr = document.createElement('tr');
+      const up = state && state.tipo === 'learn' && state.atual === n && state.mudou;
+      tr.innerHTML = '<td>'+n+'</td><td>'+h0[n].toFixed(2)+'</td><td class="'+(up?'up':'')+'">'+(aprendido ? H[n].toFixed(2) : '-')+'</td>';
+      tb.appendChild(tr);
+    });
+  }
+
+  function explain(state) {
+    const box = document.getElementById('viz-explain');
+    if (!state) { box.innerHTML = '<span class="tag t-move">início</span><br>Clique em <b>Play</b> ou <b>Avançar</b> para começar a busca de <b>S</b> (base) até <b>G</b> (destino).'; return; }
+    if (state.tipo === 'eval') {
+      const lst = state.evals.map(e => e.v+': '+e.c+'+'+e.hv+'=<b>'+e.f+'</b>').join(' &nbsp;·&nbsp; ');
+      box.innerHTML = '<span class="tag t-eval">1 · AVALIAR</span><br>Em <b>'+state.atual+'</b>, calcula f = custo + H de cada vizinho:<br>'+lst+'<br>Menor f → vai para <b>'+state.melhor+'</b> (f='+state.melhorF+').';
+    } else if (state.tipo === 'learn') {
+      box.innerHTML = '<span class="tag t-learn">2 · APRENDER</span><br>Atualiza o palpite de <b>'+state.atual+'</b>: H = max('+state.hAnt+', '+state.novo+') = <b>'+state.novo+'</b>. '+(state.mudou ? 'O palpite <b>subiu</b>, aprendizado registrado.' : 'Não mudou desta vez.');
+    } else if (state.tipo === 'move') {
+      box.innerHTML = '<span class="tag t-move">3 · MOVER</span><br>O agente anda de <b>'+state.de+'</b> para <b>'+state.para+'</b> (custo '+state.custo+' km) e repete a conta dali.';
+    } else if (state.tipo === 'done') {
+      const p = state.path.join(' → ');
+      box.innerHTML = '<span class="tag t-done">✓ DESTINO</span><br>Chegou em <b>G</b>! Caminho encontrado: <b>'+p+'</b>. O H aprendido deixaria a próxima passada ainda mais rápida.';
+    }
+  }
+
+  function render() {
+    const state = idx >= 0 ? STEPS[idx] : null;
+    draw(state); renderH(state); explain(state);
+    document.getElementById('viz-step').textContent = idx + 1 < 0 ? 0 : idx + 1;
+  }
+  function next() { if (idx < STEPS.length - 1) { idx++; render(); } else stop(); }
+  function prev() { if (idx > -1) { idx--; render(); } }
+  function reset() { stop(); idx = -1; render(); }
+  function play() {
+    if (timer) { stop(); return; }
+    if (idx >= STEPS.length - 1) idx = -1;
+    document.getElementById('viz-play-txt').textContent = 'Pausar';
+    timer = setInterval(() => { if (idx >= STEPS.length - 1) { stop(); } else next(); }, 1500);
+  }
+  function stop() { clearInterval(timer); timer = null; document.getElementById('viz-play-txt').textContent = 'Play'; }
+
+  document.getElementById('viz-total').textContent = STEPS.length;
+  document.getElementById('viz-play').onclick = play;
+  document.getElementById('viz-next').onclick = () => { stop(); next(); };
+  document.getElementById('viz-prev').onclick = () => { stop(); prev(); };
+  document.getElementById('viz-reset').onclick = reset;
+  render();
+})();
+</script>
+</body>
+</html>

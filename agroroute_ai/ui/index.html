@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AgroRoute AI · Planejamento dinâmico de rotas em tempo real para revendas agrícolas com LRTA*</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-logo"><svg viewBox="0 0 24 24" fill="none" stroke="#06120d" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div>
+      <div class="brand-txt"><b>AgroRoute<span style="color:var(--green)"> AI</span></b><span>Roteirização dinâmica · LRTA*</span></div>
+    </div>
+    <div class="nav-label">Operação</div>
+    <button class="nav-item active" data-view="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</button>
+    <button class="nav-item" data-view="cargas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>Cargas<span class="nav-badge" id="cargas-badge" style="display:none">0</span></button>
+    <button class="nav-item" data-view="planejamento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5.5-3V4L9 7m0 13l6-3m-6 3V7m6 10l5.5 3V7L15 4m0 13V4M9 7l6-3"/></svg>Planejamento</button>
+    <div class="nav-label">Inteligência</div>
+    <button class="nav-item" data-view="motor-ia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2m10-10 2-2"/></svg>Motor de Busca Online</button>
+    <button class="nav-item" data-view="historico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>Histórico</button>
+    <button class="nav-item" data-view="config"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15H4.5a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 6.2 9.6L6 9a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 11 6.6V4.5a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 2.82 1.17l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 11h.1a2 2 0 0 1 0 4h-.1z"/></svg>Configurações</button>
+    <div class="sidebar-foot"><div class="engine-pill"><span class="dot"></span> Motor LRTA* ativo</div></div>
+  </aside>
+  <div class="backdrop" id="backdrop"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="mob-toggle" id="mobToggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M3 12h18M3 6h18M3 18h18"/></svg></button>
+      <div><h2 id="page-title">Dashboard</h2><div class="sub" id="page-sub">Visão geral da operação logística</div></div>
+      <div class="today-pill" id="today-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span id="today-text">-</span></div>
+      <div class="kpis">
+        <div class="kpi"><div class="k-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M3 4l8 8"/></svg>Cargas ativas</div><div class="k-val" id="kpi-cargas">0</div></div>
+        <div class="kpi"><div class="k-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5.5-3V4L9 7m0 13l6-3m-6 3V7m6 10l5.5 3V7L15 4"/></svg>Km planejados</div><div class="k-val" id="kpi-km">0<small> km</small></div></div>
+        <div class="kpi"><div class="k-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Maior rota</div><div class="k-val" id="kpi-maxrota">0<small> min</small></div></div>
+        <div class="kpi"><div class="k-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Economia</div><div class="k-val" id="kpi-economia">0<small> km</small></div></div>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <section class="view active" id="view-dashboard">
+        <div class="title-hero">
+          <div class="th-glow"></div>
+          <div class="th-badge"><span class="th-dot"></span> Inteligência Artificial e Computacional · Busca Online</div>
+          <h1 class="th-title">AgroRoute AI<span class="th-sep">:</span> <span class="th-grad">planejamento dinâmico de rotas em tempo real</span> para revendas agrícolas com <span class="th-lrta">LRTA*.</span></h1>
+          <div class="th-tags">
+            <span class="th-tag green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/></svg> Logística agrícola</span>
+            <span class="th-tag blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg> Learning Real-Time A*</span>
+            <span class="th-tag cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 13v5m-4-3v5m8-6v3M20 16.6A5 5 0 0 0 18 7h-1.3A8 8 0 1 0 4 15.3"/></svg> Ocorrências em estradas reais + clima ao vivo</span>
+          </div>
+        </div>
+        <div class="dash-grid">
+          <div class="stat-card"><div class="sic" style="background:rgba(61,220,132,.14);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/></svg></div><div class="s-val" id="d-cargas">0</div><div class="s-lbl">Cargas hoje</div></div>
+          <div class="stat-card"><div class="sic" style="background:rgba(236,72,153,.16);color:var(--pink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><div class="s-val" id="d-clientes">0</div><div class="s-lbl">Clientes atendidos</div></div>
+          <div class="stat-card"><div class="sic" style="background:rgba(124,181,24,.16);color:var(--lime)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5.5-3V4L9 7m0 13l6-3m-6 3V7m6 10l5.5 3V7L15 4m0 13V4"/></svg></div><div class="s-val" id="d-distancia">0<small> km</small></div><div class="s-lbl">Distância planejada</div></div>
+          <div class="stat-card"><div class="sic" style="background:rgba(244,165,49,.16);color:var(--amber)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div><div class="s-val" id="d-ocorrencias">0</div><div class="s-lbl">Ocorrências ativas</div></div>
+        </div>
+        <div class="dash-2">
+          <div class="card">
+            <div class="card-h"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 9l-5 5-3-3-4 4"/></svg></div><h3>Eficiência por carga, manual × otimizada (LRTA*)</h3></div>
+            <div class="card-b"><div class="chart-bars" id="chart-bars"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 3"/></svg></div><h3>Composição da frota</h3></div>
+            <div class="card-b">
+              <div class="donut-wrap">
+                <svg width="150" height="150" viewBox="0 0 42 42">
+                  <circle cx="21" cy="21" r="15.9" fill="none" stroke="#15241e" stroke-width="6"/>
+                  <circle id="donut-green" cx="21" cy="21" r="15.9" fill="none" stroke="var(--green)" stroke-width="6" stroke-dasharray="0 100" stroke-linecap="round" transform="rotate(-90 21 21)" style="transition:stroke-dasharray 1s"/>
+                  <text x="21" y="20" text-anchor="middle" fill="#eaf3ee" font-size="7" font-weight="700" font-family="Plus Jakarta Sans" id="donut-total">0</text>
+                  <text x="21" y="26" text-anchor="middle" fill="#5f7a6e" font-size="3">cargas</text>
+                </svg>
+                <div>
+                  <div class="legend-item"><span class="legend-dot" style="background:var(--green)"></span> Caminhão (>600kg) <b style="margin-left:auto;font-family:Plus Jakarta Sans" id="leg-truck">0</b></div>
+                  <div class="legend-item"><span class="legend-dot" style="background:var(--pink)"></span> Pickup (≤600kg) <b style="margin-left:auto;font-family:Plus Jakarta Sans" id="leg-pickup">0</b></div>
+                  <div class="hint" style="margin-top:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>Veículo definido pelo peso total da carga.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CARGAS -->
+      <section class="view" id="view-cargas">
+        <div class="section-title">
+          <div><h2>Cargas do dia</h2><p>Inicie uma carga, adicione clientes, feche e calcule a rota. Caminhão = verde · Pickup = rosa.</p></div>
+          <span class="spacer"></span>
+          <button class="btn btn-primary" id="btn-nova-carga"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Iniciar Nova Carga</button>
+        </div>
+        <div class="banner" id="conflito-banner" style="display:none"></div>
+        <div id="cargas-cards" class="cargas-cards"></div>
+
+        <!-- Editor de carga (aparece ao iniciar/editar) -->
+        <div class="card editor" id="carga-editor" style="display:none;margin-top:20px">
+          <div class="card-h">
+            <div class="ic" id="editor-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l18-5v12L3 14v-3z"/></svg></div>
+            <div><h3 id="editor-titulo">Carga</h3><div class="sub" id="editor-sub" style="font-size:12px;color:var(--txt-mut)"></div></div>
+            <span class="spacer"></span>
+            <span class="estado-badge" id="editor-estado">montando</span>
+            <button class="icon-btn" id="editor-fechar-x" title="Fechar editor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          </div>
+          <div class="card-b">
+            <div class="grid-2">
+              <div>
+                <div class="row-3">
+                  <div class="field"><label>Nome do cliente</label><input id="f-nome" placeholder="Ex.: João Pereira"></div>
+                  <div class="field"><label>Fazenda</label><input id="f-fazenda" placeholder="Ex.: Faz. Boa Vista"></div>
+                  <div class="field"><label>Peso (kg)</label><input id="f-peso" type="number" min="1" placeholder="250"></div>
+                </div>
+                <div class="row-3">
+                  <div class="field"><label>Latitude</label><input id="f-lat" type="number" step="any" placeholder="-18.94"></div>
+                  <div class="field"><label>Longitude</label><input id="f-lng" type="number" step="any" placeholder="-46.99"></div>
+                  <div class="field" style="display:flex;align-items:flex-end"><button class="btn btn-ghost" style="width:100%" id="btn-pin" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Marcar no mapa</button></div>
+                </div>
+                <button class="btn btn-primary" id="btn-add-cliente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Adicionar Cliente</button>
+              </div>
+              <div>
+                <div class="cargo-summary">
+                  <div><div class="big" id="cargo-peso">0<small style="font-size:16px;color:var(--txt-dim)"> kg</small></div><div class="lbl"><span id="cargo-count">0</span> clientes nesta carga</div></div>
+                  <div class="vehicle-rec pickup" id="vehicle-rec">
+                    <div class="vic" id="vrec-ic"></div>
+                    <div><b id="vrec-name">Pickup</b><span id="vrec-detail">Vel. média 100 km/h</span></div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:14px">
+                  <button class="btn btn-petrol" style="flex:1" id="btn-fechar-carga"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg> Fechar carga</button>
+                  <button class="btn btn-primary" style="flex:1;display:none" id="btn-calcular-carga"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg> Calcular rota</button>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:16px" id="editor-tbl"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PLANEJAMENTO -->
+      <section class="view" id="view-planejamento">
+        <div class="map-wrap">
+          <div id="map"></div>
+          <div class="map-badge" id="map-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5.5-3V4L9 7m0 13l6-3m-6 3V7m6 10l5.5 3V7L15 4"/></svg><span id="map-badge-txt">Estradas reais (OSRM)</span></div>
+          <div class="map-aviso" id="map-aviso" style="display:none"></div>
+          <div class="map-loading" id="map-loading" style="display:none"><span class="ml-spin"></span><span id="map-loading-txt">Processando rota...</span></div>
+          <div class="map-legenda" id="map-legenda">
+            <div class="ml-head" id="ml-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M3 6h18M3 12h18M3 18h18"/></svg> <span>Legenda</span><span class="ml-toggle" id="ml-toggle">▾</span></div>
+            <div class="ml-body" id="ml-body">
+              <div class="lg"><span class="lg-line solid"></span> Ida (entrega)</div>
+              <div class="lg"><span class="lg-line dash"></span> Volta à base</div>
+              <div class="lg"><span class="lg-line red"></span> Bloqueado sem alternativa</div>
+              <div class="lg"><span class="lg-dot cyan"></span> Chuva ao vivo</div>
+              <div class="lg"><span class="lg-ic">↺</span> Desvio aplicado</div>
+            </div>
+          </div>
+          <div class="click-hint" id="click-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6m0 8v6M2 12h6m8 0h6"/></svg><span id="click-hint-txt"></span> <button id="click-cancel" style="margin-left:8px;text-decoration:underline">cancelar</button></div>
+
+          <!-- Botão flutuante: calcular/recalcular rota (acesso rápido no mapa) -->
+          <button class="map-fab-calc" id="map-fab-calc">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5M3.05 13A9 9 0 1 0 6 5.3L3 8"/></svg>
+            <span id="map-fab-calc-txt">Calcular rota</span>
+          </button>
+
+          <!-- Toolbar de ocorrências (recolhível, começa fechada) -->
+          <div class="occ-toolbar collapsed" id="occ-toolbar">
+            <div class="ot-head" id="ot-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg> <span>Registrar ocorrência</span><span class="ot-toggle" id="ot-toggle">▾</span></div>
+            <div class="ot-body" id="ot-body">
+              <button class="btn-clima" id="btn-clima">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 13v5m-4-3v5m8-6v3M20 16.6A5 5 0 0 0 18 7h-1.3A8 8 0 1 0 4 15.3"/></svg>
+                <span>Buscar chuva na região</span>
+                <span class="ao-vivo-dot"></span>
+              </button>
+              <div class="ot-clima-info" id="ot-clima-info"></div>
+              <div class="ot-types" id="ot-types"></div>
+              <div class="ot-active" id="ot-active"></div>
+            </div>
+          </div>
+
+          <div class="route-panel" id="route-panel">
+            <div class="rp-h"><div class="ic" style="width:30px;height:30px;border-radius:8px;background:rgba(61,220,132,.14);display:grid;place-items:center;color:var(--green)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5.5-3V4L9 7m0 13l6-3m-6 3V7m6 10l5.5 3V7L15 4m0 13V4"/></svg></div><b>Rotas no mapa</b></div>
+            <div class="rp-body" id="rp-body"><div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 20l-5.5-3V4L9 7m0 13l6-3m-6 3V7m6 10l5.5 3V7L15 4m0 13V4"/></svg><div>Calcule a rota de uma carga para vê-la aqui.</div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MOTOR IA -->
+      <section class="view" id="view-motor-ia">
+        <div class="section-title"><div><h2>Motor de Busca Online, LRTA*</h2><p>Learning Real-Time A* · como a IA decide e aprende o caminho, passo a passo.</p></div></div>
+
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-b" style="display:flex;gap:18px;flex-wrap:wrap">
+            <div style="flex:1;min-width:240px">
+              <h4 style="font-size:15px;margin-bottom:6px">O que é "Busca Online"?</h4>
+              <p style="font-size:13px;color:var(--txt-dim);line-height:1.6">Imagine um motorista que <b>não tem o mapa inteiro na cabeça</b>. Ele decide o próximo passo olhando só o que está à sua volta, quais estradas saem do ponto atual e quanto custa cada uma. Vai descobrindo o caminho <b>enquanto anda</b>. É assim que o LRTA* funciona: ele não calcula tudo de uma vez (isso seria busca "offline"), ele escolhe o melhor próximo passo a cada momento.</p>
+            </div>
+            <div style="flex:1;min-width:240px">
+              <h4 style="font-size:15px;margin-bottom:6px">O que é a "heurística" H(s)?</h4>
+              <p style="font-size:13px;color:var(--txt-dim);line-height:1.6">É um <b>palpite</b> de quão longe um ponto está do destino, começa como a distância em linha reta (otimista). A cada passo o motorista corrige esse palpite com o que viu na estrada: <b>H(s) = menor (custo até o vizinho + palpite do vizinho)</b>. Assim a IA <b>aprende</b> os custos reais e, da próxima vez, erra menos. Quando um trecho é interditado (custo infinito), ela simplesmente nunca escolhe aquele caminho e procura outro.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-row">
+          <div class="metric"><div class="mv" id="m-trials">0</div><div class="ml">Tentativas até convergir</div></div>
+          <div class="metric"><div class="mv" id="m-nodes">0</div><div class="ml">Nós expandidos</div></div>
+          <div class="metric"><div class="mv" id="m-updates">0</div><div class="ml">Atualizações de H(s)</div></div>
+        </div>
+
+        <!-- ÁRVORE DE BUSCA (didática, independente de cálculo) -->
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-h">
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2.5"/><circle cx="6" cy="13" r="2.5"/><circle cx="18" cy="13" r="2.5"/><circle cx="9" cy="20" r="2.2"/><circle cx="15" cy="20" r="2.2"/><path d="M12 7.5 7.5 11M12 7.5 16.5 11M6.5 15.3 8.4 18M17.5 15.3 15.6 18"/></svg></div>
+            <h3>Árvore de busca, como o LRTA* explora os nós</h3>
+            <span class="spacer"></span>
+            <div class="anim-ctrl">
+              <button class="btn btn-ghost" id="tree-reset" title="Reiniciar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5M3.05 13A9 9 0 1 0 6 5.3L3 8"/></svg></button>
+              <button class="btn btn-ghost" id="tree-prev" title="Anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 20 9 12l10-8M5 19V5"/></svg></button>
+              <button class="btn btn-primary" id="tree-play"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9V3z"/></svg> Reproduzir</button>
+              <button class="btn btn-ghost" id="tree-next" title="Próximo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4l10 8-10 8V4zM19 5v14"/></svg></button>
+            </div>
+          </div>
+          <div class="card-b">
+            <div class="tree-wrap">
+              <svg id="tree-svg" viewBox="0 0 760 360" preserveAspectRatio="xMidYMid meet" style="max-width:560px;margin:0 auto"></svg>
+            </div>
+            <div class="tree-narr" id="tree-narr"></div>
+            <div class="tree-legend">
+              <span><i class="lg lg-open"></i> na fronteira (a explorar)</span>
+              <span><i class="lg lg-cur"></i> sendo expandido agora</span>
+              <span><i class="lg lg-closed"></i> já explorado</span>
+              <span><i class="lg lg-path"></i> caminho da solução</span>
+              <span class="tree-fnote">f = g + h · <b>g</b> = custo acumulado · <b>h</b> = palpite até o destino</span>
+            </div>
+            <div class="anim-progress" style="margin-top:14px"><div class="anim-bar" id="tree-bar"></div></div>
+            <div class="anim-step-lbl" id="tree-step-lbl"></div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-h"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="13" y="6" width="3" height="11"/></svg></div><h3>Tabela heurística aprendida, H(s)</h3></div>
+            <div class="card-b" style="max-height:300px;overflow-y:auto;padding:0">
+              <table class="htable" id="htable"><thead><tr><th>Nó (local)</th><th>H inicial</th><th>H aprendido</th></tr></thead><tbody id="htable-body"></tbody></table>
+              <div class="empty" id="htable-empty"><div style="font-size:13px">Calcule a rota de uma carga para ver a IA aprendendo.</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6M12 19h8"/></svg></div><h3>Log de decisões do agente</h3></div>
+            <div class="card-b"><div class="log-box" id="log-box"><div class="log-line">// Aguardando execução do motor LRTA*...</div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- HISTÓRICO -->
+      <section class="view" id="view-historico">
+        <div class="section-title"><div><h2>Histórico de Cargas</h2><p>Cargas registradas por data (somente leitura para dias anteriores).</p></div><span class="spacer"></span>
+          <div class="field" style="margin:0"><select id="hist-data"></select></div>
+        </div>
+        <div id="hist-resumo" class="hist-resumo"></div>
+        <div id="historico-cards" class="cargas-cards"></div>
+      </section>
+
+      <!-- CONFIG -->
+      <section class="view" id="view-config">
+        <div class="section-title"><div><h2>Configurações</h2><p>Parâmetros da operação e do motor de busca.</p></div></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-h"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div><h3>Base da empresa (revenda)</h3></div>
+            <div class="card-b">
+              <div class="field"><label>Nome da base</label><input id="cfg-base-nome" value="Revenda AgroRoute · Patrocínio-MG"></div>
+              <div class="row-3" style="grid-template-columns:1fr 1fr"><div class="field"><label>Latitude</label><input id="cfg-base-lat" type="number" step="any" value="-18.931325"></div><div class="field"><label>Longitude</label><input id="cfg-base-lng" type="number" step="any" value="-46.971942"></div></div>
+              <button class="btn btn-primary" id="btn-save-base"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg> Salvar base</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17H3V6h11v11h-3M9 17h6m4 0h2v-5l-3-4h-3v9"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg></div><h3>Parâmetros da frota</h3></div>
+            <div class="card-b">
+              <div class="row-3" style="grid-template-columns:1fr 1fr"><div class="field"><label>Limite Pickup (kg)</label><input id="cfg-limite" type="number" value="600"></div><div class="field"><label>Vel. Pickup (km/h)</label><input id="cfg-vel-pickup" type="number" value="100"></div></div>
+              <div class="row-3" style="grid-template-columns:1fr 1fr"><div class="field"><label>Vel. Caminhão (km/h)</label><input id="cfg-vel-truck" type="number" value="70"></div><div class="field"><label>Conexões por nó (grafo)</label><input id="cfg-knn" type="number" value="3"></div></div>
+              <div class="field" style="margin-top:4px">
+                <label>Balança de prioridade: distância × alívio de carga</label>
+                <input id="cfg-peso-carga" type="range" min="0" max="100" value="70" class="slider-balanca">
+                <div class="balanca-labels"><span> Economia de combustível</span><span id="cfg-peso-val">70%</span><span> Aliviar carga pesada</span></div>
+                <p class="field-hint">Quanto maior, mais o sistema prioriza entregar os clientes <b>pesados primeiro</b>, evitando arrastar maiores cargas em desvios e "passear" com grandes volumes. Em 0%, decide só pela menor distância.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-save-fleet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg> Salvar parâmetros</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:20px">
+          <div class="card-h"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17H3V6h11v11h-3M9 17h6m4 0h2v-5l-3-4h-3v9"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg></div><h3>Frota disponível</h3><span class="spacer"></span><span class="chip chip-green" id="frota-count">0 veículos</span></div>
+          <div class="card-b">
+            <div class="row-3" style="grid-template-columns:1fr 1fr auto;align-items:flex-end">
+              <div class="field" style="margin:0"><label>Placa</label><input id="f-placa" placeholder="ABC-1234"></div>
+              <div class="field" style="margin:0"><label>Tipo</label><select id="f-veh-tipo"><option>Pickup</option><option>Caminhão</option></select></div>
+              <button class="btn btn-primary" id="btn-add-veiculo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Cadastrar</button>
+            </div>
+            <div class="hint" style="margin-top:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg> Uma carga só é calculada se houver um veículo do tipo certo <b>disponível</b>. Ao calcular, o veículo entra <b>em rota</b>; ao finalizar a entrega, volta a ficar disponível.</div>
+            <div id="frota-list" style="margin-top:14px"></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+<div id="toast-wrap"></div>
+<script src="app.js"></script>
+</body>
+</html>
