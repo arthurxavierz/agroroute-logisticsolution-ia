@@ -44,6 +44,11 @@ com a estrada e recalcula quando o caminho muda (bloqueios, chuva). As rotas seg
 
 ---
 
+Chuva ao vivo:
+
+<img width="1363" height="750" alt="image" src="https://github.com/user-attachments/assets/fd12d07c-44a5-4a8c-bf28-715a5e9774f2" />
+
+
 ## Como executar
 
 Pré-requisito: **Python 3.10+**.
@@ -137,8 +142,8 @@ agroroute_ai/
 - **Clima:** Open-Meteo API
 - **Frontend:** HTML, CSS e JavaScript (sem frameworks)
 
-Desenvolvido por Arthur Xavier.
-
 ---
 
 <sub>Projeto acadêmico, IFTM Campus Patrocínio, disciplina de Inteligência Artificial e Computacional.</sub>
+
+Desenvolvido por Arthur Xavier.
